@@ -2,8 +2,10 @@
 
 
 #include "Enemy/Enemy.h"
+
 #include "PaladinCharacter.h"
 #include "Enemy/EnemyAIController.h"
+#include "Enemy/EnemyProjectile.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundCue.h"
 
@@ -106,9 +108,9 @@ void AEnemy::MeleeAttack()
 			float const SectionLenght = AttackMontage->GetSectionLength(SectionIndex);
 
 			// Play montage section
-			AnimInstance->Montage_Play(AttackMontage);
+			AnimInstance->Montage_Play(AttackMontage, 0.5f);
 			AnimInstance->Montage_JumpToSection(SectionName, AttackMontage);
-			GetWorldTimerManager().SetTimer(TimerAttack, this, &AEnemy::ResetAttack, SectionLenght, false);
+			//GetWorldTimerManager().SetTimer(TimerAttack, this, &AEnemy::ResetAttack, SectionLenght, false);
 
 			// Call reset melee attack
 			FTimerHandle TimerResetAttack;
@@ -124,6 +126,18 @@ void AEnemy::ResetMeleeAttack()
 	{
 		CurrentState = EAIState::Strafe;
 	}
+}
+
+void AEnemy::SpawnProjectile()
+{
+	// Get socket transform
+	FTransform SocketTransform = GetMesh()->GetSocketTransform("ProjectileSocket");
+
+	// Set spawn parameters
+	FActorSpawnParameters SpawnParameters;
+
+	// Spawn the projectile
+	AEnemyProjectile* Projectile = GetWorld()->SpawnActor<AEnemyProjectile>(ProjectileBP, SocketTransform, SpawnParameters);
 }
 
 void AEnemy::ResetAttack()

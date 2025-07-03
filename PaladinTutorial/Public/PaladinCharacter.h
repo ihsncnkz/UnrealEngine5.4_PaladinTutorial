@@ -6,6 +6,8 @@
 #include "Components/BoxComponent.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
+#include "MotionWarpingComponent.h"
+#include "MotionWarpingClasses.h"
 #include "Perception/AIPerceptionStimuliSourceComponent.h"
 #include "PaladinCharacter.generated.h"
 
@@ -17,6 +19,7 @@ class UInputMappingContext;
 class UInputAction;
 class UAnimMontage;
 class USoundCue;
+class UMotionWarpingComponent;
 
 UCLASS()
 class PALADINTUTORIAL_API APaladinCharacter : public ACharacter
@@ -30,6 +33,13 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
+	// Motion Warping
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	UMotionWarpingComponent* MotionWarpingComponent;
+
+	void MotionWarpAttack(float AttackDistance, FName MotionWarpName);
+	void ResetWarpAttack();
 
 	// Input Actions
 	UPROPERTY(EditAnywhere, Category = "EnhancedInput")

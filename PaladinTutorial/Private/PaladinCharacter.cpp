@@ -10,6 +10,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "PaladinAnimInstance.h"
 #include "HitInterface.h"
+#include "Enemy/Enemy.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundCue.h"
 #include "Perception/AISense_Sight.h"
@@ -46,6 +47,9 @@ APaladinCharacter::APaladinCharacter() :
 
 	// Stimulus
 	SetupStimulusSource();
+
+	// Motion warping component
+	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarpComponent"));
 }
 
 // Called when the game starts or when spawned
@@ -71,6 +75,42 @@ void APaladinCharacter::BeginPlay()
 	RightWeaponCollision->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
 	RightWeaponCollision->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	RightWeaponCollision->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
+}
+
+void APaladinCharacter::MotionWarpAttack(float AttackDistance, FName MotionWarpName)
+{
+	const FVector Start = GetActorLocation();
+	const FVector End = Start + GetActorForwardVector() * AttackDistance;
+	FHitResult HitResult;
+
+	// Set up collision query params to ignore the player
+	FCollisionQueryParams TraceParams(FName(TEXT("AttackTrace")), true, this);
+	TraceParams.bReturnPhysicalMaterial = false;
+
+	// Perform line trace
+	ECollisionChannel Ecc_Channel = ECC_Pawn;
+	if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, Ecc_Channel, TraceParams))
+	{
+		AEnemy* Enemy = Cast<AEnemy>(HitResult.GetActor());
+		if (Enemy && MotionWarpingComponent)
+		{
+			if (HitResult.bBlockingHit && HitResult.GetActor() == Enemy)
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("Hot Enemy"));
+				MotionWarpingComponent->AddOrUpdateWarpTargetFromLocation(MotionWarpName, HitResult.Location);
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Enemy is null or MotionWarpingComponent is null!"));
+		}
+		DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 1, 0, 1);
+	}
+}
+
+void APaladinCharacter::ResetWarpAttack()
+{
+	MotionWarpingComponent->RemoveAllWarpTargets();
 }
 
 void APaladinCharacter::Move(const FInputActionValue& InputValue)
@@ -155,6 +195,7 @@ void APaladinCharacter::SpinAttack()
 
 void APaladinCharacter::JumpAttack()
 {
+	MotionWarpAttack(1000, "Attack4");
 	AnimMontagePlay(AttackMontage, FName("Attack4"));
 }
 
@@ -191,6 +232,12 @@ void APaladinCharacter::AnimMontagePlay(UAnimMontage* MontageToPlay, FName Secti
 		if (!AnimInstance->Montage_IsPlaying(MontageToPlay))
 		{
 			PlayAnimMontage(MontageToPlay, PlayRate, SectionName);
+		}
+
+		if (MontageToPlay == AttackMontage && SectionName == "Attack4")
+		{
+			FTimerHandle WarpTimer;
+			GetWorldTimerManager().SetTimer(WarpTimer, this, &APaladinCharacter::ResetWarpAttack, 2.f, false);
 		}
 	}
 
