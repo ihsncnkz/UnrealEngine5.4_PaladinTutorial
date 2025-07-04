@@ -43,8 +43,8 @@ public:
 	void EnterCombat();
 	void ExitCombat();
 
-	void MeleeAttack();
-	void ResetMeleeAttack();
+	void MeleeRangeAttack();
+	void ResetMeleeRangeAttack();
 
 	// Spawn projects for enemy projetile
 	void SpawnProjectile();
@@ -129,6 +129,9 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	float MaxHealth;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	float AttackSpeed;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	UAnimMontage* AttackMontage;

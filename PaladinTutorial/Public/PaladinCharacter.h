@@ -11,6 +11,17 @@
 #include "Perception/AIPerceptionStimuliSourceComponent.h"
 #include "PaladinCharacter.generated.h"
 
+UENUM(BlueprintType)
+enum class EPlayerState : uint8
+{
+	Ready	    UMETA(DisplayName = "Ready"),
+	NotReady    UMETA(DisplayName = "Not Ready"),
+	Attacking   UMETA(DisplayName = "Attacking"),
+	BlockDodge  UMETA(DisplayName = "BlockDodge"),
+	Attack		UMETA(DisplayName = "Attack"),
+	Stunned		UMETA(DisplayName = "Stunned"),
+	Dead		UMETA(DisplayName = "Dead"),
+};
 
 // Declaration
 class USpringArmComponent;
@@ -72,6 +83,15 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "EnhancedInput")
 	UInputAction* BlockAction;
 
+	UPROPERTY(EditAnywhere, Category = "EnhancedInput")
+	UInputAction* DodgeBackAction;
+
+	UPROPERTY(EditAnywhere, Category = "EnhancedInput")
+	UInputAction* DodgeLeftAction;
+
+	UPROPERTY(EditAnywhere, Category = "EnhancedInput")
+	UInputAction* DodgeRightAction;
+
 	// Walk Speed
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Movement")
 	float WalkSpeed;
@@ -94,9 +114,15 @@ protected:
 	void SpinAttack();
 	void JumpAttack();
 
+	// Dodge
+	void DodgeBack();
+	void DodgeLeft();
+	void DodgeRight();
+
 	// Blocking
 	void StartBlocking();
 	void StopBlocking();
+	void ResetDodgeRoll();
 
 	// Handle logic after player died
 	UFUNCTION(BlueprintImplementableEvent)
@@ -114,7 +140,15 @@ protected:
 		const FHitResult& SweepResult
 	);
 
-public:	
+public:
+	// Save and load player data
+	UFUNCTION(BlueprintCallable, Category = "Saved Data")
+	void SavePlayerData();
+	void LoadPlayerData();
+
+	// Current State
+	EPlayerState CurrentState;
+
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
@@ -127,6 +161,12 @@ public:
 	virtual float TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
 private:
+	// Timers
+	FTimerHandle TimerDodgeRoll;
+
+	// Last checkpoint location
+	FVector CheckpointLocation;
+
 	// Spring arm component
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
 	USpringArmComponent* SpringArmComponent;
@@ -138,6 +178,9 @@ private:
 	// Montage
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Montage", meta = (AllowPrivateAccess = "true"))
 	UAnimMontage* AttackMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Montage", meta = (AllowPrivateAccess = "true"))
+	UAnimMontage* DodgeMontage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	UBoxComponent* RightWeaponCollision;

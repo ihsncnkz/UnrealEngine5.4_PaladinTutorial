@@ -10,6 +10,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "PaladinAnimInstance.h"
 #include "HitInterface.h"
+#include "PlayerSaveGame.h"
 #include "Enemy/Enemy.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundCue.h"
@@ -57,6 +58,17 @@ void APaladinCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+	LoadPlayerData();
+
+	// Spawm player at checkpoint location
+	UWorld* World = GetWorld();
+	if (World && CheckpointLocation != FVector::ZeroVector)
+	{
+		SetActorLocation(CheckpointLocation);
+	}
+
+	CurrentState = EPlayerState::Ready;
+
 	// Add input mapping content
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
 	{
@@ -96,7 +108,6 @@ void APaladinCharacter::MotionWarpAttack(float AttackDistance, FName MotionWarpN
 		{
 			if (HitResult.bBlockingHit && HitResult.GetActor() == Enemy)
 			{
-				GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("Hot Enemy"));
 				MotionWarpingComponent->AddOrUpdateWarpTargetFromLocation(MotionWarpName, HitResult.Location);
 			}
 		}
@@ -199,13 +210,33 @@ void APaladinCharacter::JumpAttack()
 	AnimMontagePlay(AttackMontage, FName("Attack4"));
 }
 
+void APaladinCharacter::DodgeBack()
+{
+	CurrentState = EPlayerState::BlockDodge;
+	AnimMontagePlay(DodgeMontage, FName("DodgeBack"));
+	GetWorldTimerManager().SetTimer(TimerDodgeRoll, this, &APaladinCharacter::ResetDodgeRoll, 1.5f);
+}
+
+void APaladinCharacter::DodgeLeft()
+{
+	CurrentState = EPlayerState::BlockDodge;
+	AnimMontagePlay(DodgeMontage, FName("DodgeLeft"));
+	GetWorldTimerManager().SetTimer(TimerDodgeRoll, this, &APaladinCharacter::ResetDodgeRoll, 1.5f);
+}
+
+void APaladinCharacter::DodgeRight()
+{
+	CurrentState = EPlayerState::BlockDodge;
+	AnimMontagePlay(DodgeMontage, FName("DodgeRight"));
+	GetWorldTimerManager().SetTimer(TimerDodgeRoll, this, &APaladinCharacter::ResetDodgeRoll, 1.5f);
+}
+
 void APaladinCharacter::StartBlocking()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Cyan, TEXT("Start Blocking"));
-
 	UPaladinAnimInstance* AnimInstance = Cast<UPaladinAnimInstance>(GetMesh()->GetAnimInstance());
 	if (AnimInstance)
 	{
+		CurrentState = EPlayerState::BlockDodge;
 		GetCharacterMovement()->DisableMovement();
 		AnimInstance->SetIsBlocking(true);
 	}
@@ -213,14 +244,18 @@ void APaladinCharacter::StartBlocking()
 
 void APaladinCharacter::StopBlocking()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Cyan, TEXT("Stop Blocking"));
-
 	UPaladinAnimInstance* AnimInstance = Cast<UPaladinAnimInstance>(GetMesh()->GetAnimInstance());
 	if (AnimInstance)
 	{
+		CurrentState = EPlayerState::Ready;
 		GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 		AnimInstance->SetIsBlocking(false);
 	}
+}
+
+void APaladinCharacter::ResetDodgeRoll()
+{
+	CurrentState = EPlayerState::Ready;
 }
 
 void APaladinCharacter::AnimMontagePlay(UAnimMontage* MontageToPlay, FName SectionName, float PlayRate)
@@ -261,6 +296,33 @@ void APaladinCharacter::OnRightWeaponOverlap(UPrimitiveComponent* OverlappedComp
 			GetController(),
 			this,
 			UDamageType::StaticClass());
+	}
+}
+
+void APaladinCharacter::SavePlayerData()
+{
+	UPlayerSaveGame* SaveGameInstance = Cast<UPlayerSaveGame>(UGameplayStatics::CreateSaveGameObject(UPlayerSaveGame::StaticClass()));
+	if (SaveGameInstance)
+	{
+		SaveGameInstance->Health = Health;
+		SaveGameInstance->CheckpointLocation = GetActorLocation();
+
+		// Save create object to file
+		if (!UGameplayStatics::SaveGameToSlot(SaveGameInstance, TEXT("PlayerSaveSlot"), 0))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("SaveGameToSlot faild"));
+		}
+	}
+}
+
+void APaladinCharacter::LoadPlayerData()
+{
+	UPlayerSaveGame* LoadGameInstance = Cast<UPlayerSaveGame>(UGameplayStatics::LoadGameFromSlot(TEXT("PlayerSaveSlot"), 0));
+
+	if (LoadGameInstance)
+	{
+		Health = LoadGameInstance->Health;
+		CheckpointLocation = LoadGameInstance->CheckpointLocation;
 	}
 }
 
@@ -309,6 +371,11 @@ void APaladinCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 		Input->BindAction(RunAction, ETriggerEvent::Triggered, this, &APaladinCharacter::Running);
 		Input->BindAction(RunAction, ETriggerEvent::Completed, this, &APaladinCharacter::StopRunning);
 
+		// Dodge Actions
+		Input->BindAction(DodgeBackAction, ETriggerEvent::Triggered, this, &APaladinCharacter::DodgeBack);
+		Input->BindAction(DodgeLeftAction, ETriggerEvent::Triggered, this, &APaladinCharacter::DodgeLeft);
+		Input->BindAction(DodgeRightAction, ETriggerEvent::Triggered, this, &APaladinCharacter::DodgeRight);
+
 		//Blocking Actions
 		Input->BindAction(BlockAction, ETriggerEvent::Triggered, this, &APaladinCharacter::StartBlocking);
 		Input->BindAction(BlockAction, ETriggerEvent::Completed, this, &APaladinCharacter::StopBlocking);
@@ -333,8 +400,8 @@ void APaladinCharacter::DeactivateRightWeapon()
 
 float APaladinCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	UPaladinAnimInstance* AnimInstance = Cast<UPaladinAnimInstance>(GetMesh()->GetAnimInstance());
-	if (AnimInstance->GetIsBlocking() == false)
+	
+	if (CurrentState != EPlayerState::BlockDodge)
 	{
 		if (Health - DamageAmount <= 0.f)
 		{
@@ -356,7 +423,8 @@ float APaladinCharacter::TakeDamage(float DamageAmount, FDamageEvent const& Dama
 		// Check if player is facing enemy - run dot product logic
 		if (PlayerFacingActor(DamageCauser))
 		{
-			if (ShieldImpactSound)
+			UPaladinAnimInstance* AnimInstance = Cast<UPaladinAnimInstance>(GetMesh()->GetAnimInstance());
+			if (ShieldImpactSound && AnimInstance->GetIsBlocking())
 			{
 				UGameplayStatics::PlaySoundAtLocation(this, ShieldImpactSound, GetActorLocation());
 			}

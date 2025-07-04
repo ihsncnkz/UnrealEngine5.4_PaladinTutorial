@@ -14,6 +14,7 @@ AEnemy::AEnemy() :
 	BaseDamage(5.f), 
 	Health(100.f), 
 	MaxHealth(100.f),
+	AttackSpeed(1.f),
 	AttackRange(300.f),
 	AcceptanceRange(200.f)
 {
@@ -90,7 +91,7 @@ void AEnemy::OnRightWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AAct
 	}
 }
 
-void AEnemy::MeleeAttack()
+void AEnemy::MeleeRangeAttack()
 {
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 
@@ -108,18 +109,18 @@ void AEnemy::MeleeAttack()
 			float const SectionLenght = AttackMontage->GetSectionLength(SectionIndex);
 
 			// Play montage section
-			AnimInstance->Montage_Play(AttackMontage, 0.5f);
+			AnimInstance->Montage_Play(AttackMontage, AttackSpeed);
 			AnimInstance->Montage_JumpToSection(SectionName, AttackMontage);
 			//GetWorldTimerManager().SetTimer(TimerAttack, this, &AEnemy::ResetAttack, SectionLenght, false);
 
 			// Call reset melee attack
 			FTimerHandle TimerResetAttack;
-			GetWorldTimerManager().SetTimer(TimerResetAttack, this, &AEnemy::ResetMeleeAttack, SectionLenght, false);
+			GetWorldTimerManager().SetTimer(TimerResetAttack, this, &AEnemy::ResetMeleeRangeAttack, SectionLenght, false);
 		}
 	}
 }
 
-void AEnemy::ResetMeleeAttack()
+void AEnemy::ResetMeleeRangeAttack()
 {
 	float RandomChance = FMath::FRand();
 	if (RandomChance <= 0.3f)
