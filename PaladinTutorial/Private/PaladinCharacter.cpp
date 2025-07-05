@@ -53,6 +53,33 @@ APaladinCharacter::APaladinCharacter() :
 	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarpComponent"));
 }
 
+void APaladinCharacter::SavePlayerData()
+{
+	UPlayerSaveGame* SaveGameInstance = Cast<UPlayerSaveGame>(UGameplayStatics::CreateSaveGameObject(UPlayerSaveGame::StaticClass()));
+	if (SaveGameInstance)
+	{
+		SaveGameInstance->Health = Health;
+		SaveGameInstance->CheckpointLocation = GetActorLocation();
+
+		// Save create object to file
+		if (!UGameplayStatics::SaveGameToSlot(SaveGameInstance, TEXT("PlayerSaveSlot"), 0))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("SaveGameToSlot faild"));
+		}
+	}
+}
+
+void APaladinCharacter::LoadPlayerData()
+{
+	UPlayerSaveGame* LoadGameInstance = Cast<UPlayerSaveGame>(UGameplayStatics::LoadGameFromSlot(TEXT("PlayerSaveSlot"), 0));
+
+	if (LoadGameInstance)
+	{
+		Health = LoadGameInstance->Health;
+		CheckpointLocation = LoadGameInstance->CheckpointLocation;
+	}
+}
+
 // Called when the game starts or when spawned
 void APaladinCharacter::BeginPlay()
 {
@@ -115,7 +142,7 @@ void APaladinCharacter::MotionWarpAttack(float AttackDistance, FName MotionWarpN
 		{
 			UE_LOG(LogTemp, Warning, TEXT("Enemy is null or MotionWarpingComponent is null!"));
 		}
-		DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 1, 0, 1);
+		//DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 1, 0, 1);
 	}
 }
 
@@ -299,32 +326,7 @@ void APaladinCharacter::OnRightWeaponOverlap(UPrimitiveComponent* OverlappedComp
 	}
 }
 
-void APaladinCharacter::SavePlayerData()
-{
-	UPlayerSaveGame* SaveGameInstance = Cast<UPlayerSaveGame>(UGameplayStatics::CreateSaveGameObject(UPlayerSaveGame::StaticClass()));
-	if (SaveGameInstance)
-	{
-		SaveGameInstance->Health = Health;
-		SaveGameInstance->CheckpointLocation = GetActorLocation();
 
-		// Save create object to file
-		if (!UGameplayStatics::SaveGameToSlot(SaveGameInstance, TEXT("PlayerSaveSlot"), 0))
-		{
-			UE_LOG(LogTemp, Warning, TEXT("SaveGameToSlot faild"));
-		}
-	}
-}
-
-void APaladinCharacter::LoadPlayerData()
-{
-	UPlayerSaveGame* LoadGameInstance = Cast<UPlayerSaveGame>(UGameplayStatics::LoadGameFromSlot(TEXT("PlayerSaveSlot"), 0));
-
-	if (LoadGameInstance)
-	{
-		Health = LoadGameInstance->Health;
-		CheckpointLocation = LoadGameInstance->CheckpointLocation;
-	}
-}
 
 bool APaladinCharacter::PlayerFacingActor(AActor* FacingActor)
 {
